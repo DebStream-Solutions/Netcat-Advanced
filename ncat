@@ -1,0 +1,52 @@
+#!/bin/bash
+
+# Terminal Chat Application Using Netcat (nc)
+
+# Colors for better visibility
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+CYAN='\033[0;36m'
+YELLOW='\033[0;33m'
+NC='\033[0m' # No Color
+
+# Prompt for user details
+echo -e "${CYAN}Welcome to Terminal Chat!${NC}"
+read -p "Enter your name: " USERNAME
+read -p "Enter the remote user's name: " REMOTE_NAME
+
+# Prompt for server or client mode
+read -p "Are you hosting the chat? (y/n): " IS_SERVER
+
+if [[ "$IS_SERVER" == "y" ]]; then
+  # Server mode
+  read -p "Enter the port to listen on (default 12345): " PORT
+  PORT=${PORT:-12345}
+  echo -e "${YELLOW}Waiting for a connection on port $PORT...${NC}"
+  nc -l -p $PORT | while read line; do
+    # Display received messages with remote user's name and timestamp
+    echo -e "${GREEN}[$(date +'%H:%M:%S')] <$REMOTE_NAME>: $line${NC}"
+  done &
+  NC_PID=$!
+else
+  # Client mode
+  read -p "Enter the server's IP address: " SERVER_IP
+  read -p "Enter the server's port (default 12345): " PORT
+  PORT=${PORT:-12345}
+  echo -e "${YELLOW}Connecting to $SERVER_IP on port $PORT...${NC}"
+  nc $SERVER_IP $PORT | while read line; do
+    # Display received messages with remote user's name and timestamp
+    echo -e "${GREEN}[$(date +'%H:%M:%S')] <$REMOTE_NAME>: $line${NC}"
+  done &
+  NC_PID=$!
+fi
+
+# Sending messages
+echo -e "${CYAN}Start chatting! Press Ctrl+C to quit.${NC}"
+while true; do
+  # Prompt for message input
+  read -p "$(echo -e "${CYAN}[$(date +'%H:%M:%S')] <$USERNAME>: ${NC}")" MESSAGE
+  echo "$MESSAGE" | nc ${SERVER_IP:-localhost} $PORT
+done
+
+# Cleanup when interrupted
+trap "kill $NC_PID; echo -e '\n${RED}Chat ended. Goodbye!${NC}'; exit" INT
